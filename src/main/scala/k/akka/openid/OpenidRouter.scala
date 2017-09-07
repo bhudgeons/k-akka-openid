@@ -86,8 +86,8 @@ object OpenidRouter {
    * @param sessionsDuration The duration the security tokens will be available between redirection to a provider and its result
    * @return
    */
-  def apply(providers: Seq[OpenidProvider], settings: OpenidRouterSettings = OpenidRouterSettings())(resultProcessor: ResultProcessor)(implicit actorSystem: ActorSystem, materializer: ActorMaterializer, sessionsDuration: FiniteDuration): Route =
-    new OpenidRouter(providers, settings, resultProcessor, sessionsDuration)(actorSystem, materializer).build()
+  def apply(providers: Seq[OpenidProvider], settings: OpenidRouterSettings = OpenidRouterSettings())(implicit actorSystem: ActorSystem, materializer: ActorMaterializer, sessionsDuration: FiniteDuration): Route =
+    new OpenidRouter(providers, settings, sessionsDuration)(actorSystem, materializer).build()
 }
 
 /**
@@ -101,7 +101,7 @@ object OpenidRouter {
  * @param actorSystem      The current actor system
  * @param materializer     The current materializer
  */
-private class OpenidRouter(providers: Seq[OpenidProvider], _settings: OpenidRouterSettings, resultProcessor: ResultProcessor, sessionsDuration: FiniteDuration)(implicit actorSystem: ActorSystem, materializer: ActorMaterializer) {
+private class OpenidRouter(providers: Seq[OpenidProvider], _settings: OpenidRouterSettings, sessionsDuration: FiniteDuration)(implicit actorSystem: ActorSystem, materializer: ActorMaterializer) {
   implicit val ec = actorSystem.dispatcher
 
   // Defines a default setting when none is given
@@ -123,7 +123,7 @@ private class OpenidRouter(providers: Seq[OpenidProvider], _settings: OpenidRout
    *
    * @return The built route
    */
-  def build(): Route = {
+  def build()(implicit actorSystem: ActorSystem, materializer: ActorMaterializer, sessionsDuration: FiniteDuration): Route = {
     settings.prefix match {
       case Some(prefix) =>
         pathPrefix(prefix) {
@@ -137,150 +137,15 @@ private class OpenidRouter(providers: Seq[OpenidProvider], _settings: OpenidRout
   /**
    * Builds all provider routes and concatenate all route parts.
    */
-  private def buildAllProviders: Route =
+  private def buildAllProviders(implicit actorSystem: ActorSystem, materializer: ActorMaterializer, sessionsDuration: FiniteDuration): Route =
     providers map {
-      p => buildOneProvider(p)
+      p => p.buildOneProvider(settings)
     } reduce {
       (a, b) => a ~ b
     }
 
-  /**
-   * Builds one provider for redirection route and result route.
-   *
-   * @param provider The provider to consider
-   * @return The built route
-   */
-  private def buildOneProvider(provider: OpenidProvider): Route = {
-    buildForProcess(provider.path, settings.beforeProviderOnRedirection, settings.afterProviderOnRedirection) {
-      redirection(provider)
-    } ~ buildForProcess(provider.path, settings.beforeProviderOnResponse, settings.afterProviderOnResponse) {
-      response(provider)
-    }
-  }
 
-  /**
-   * Builds a route for given process in terms of optional parts before and after the route.
-   * {{{
-   *   // Examples:
-   *   buildForProcess("a", Some("before"), Some("after")(process) => final url = /before/a/after
-   *   buildForProcess("a", None,           Some("after")(process) => final url = /a/after
-   * }}}
-   *
-   * @param providerPath The path of the provider
-   * @param beforeOpt    The optional part before the provider path
-   * @param afterOpt     The optional part after the provider path
-   * @param process      The process to consider
-   * @return The built route
-   */
-  private def buildForProcess(providerPath: String, beforeOpt: Option[String], afterOpt: Option[String])(process: Route) = {
-    (beforeOpt, afterOpt) match {
-      case (Some(before), Some(after)) =>
-        pathPrefix(before) {
-          pathPrefix(providerPath) {
-            path(after) {
-              process
-            }
-          }
-        }
-      case (Some(before), None) =>
-        pathPrefix(before) {
-          path(providerPath) {
-            process
-          }
-        }
-      case (None, Some(after)) =>
-        pathPrefix(providerPath) {
-          path(after) {
-            process
-          }
-        }
-      case (None, None) =>
-        path(providerPath) {
-          process
-        }
-    }
-  }
 
-  /**
-   * Builds the redirection response for given provider.
-   */
-  private def redirection(provider: OpenidProvider): Route = {
-    val openidTokenCookie = generateToken()
-    setCookie(HttpCookie("openidToken", value = openidTokenCookie)) { ctx =>
-      val token = generateToken()
-      val hash = crypt(openidTokenCookie, token)
-      tokens.add(openidTokenCookie, hash)
-      val uri = provider.buildRedirectURI(token)
-      ctx.complete(HttpResponse(StatusCodes.TemporaryRedirect, headers = List(Location(uri))))
-    }
-  }
 
-  /**
-   * Builds the process for given provider and sends the result to [[resultProcessor]].
-   */
-  private def response(provider: OpenidProvider): Route = {
-    cookie("openidToken") { openidToken =>
-      deleteCookie("openidToken") {
-        parameterMap { parameters => ctx =>
-          provider.extractTokenFromParameters(parameters) map { tokenParameter =>
-            tokens.get(openidToken.value) map { token =>
-              if (crypt(openidToken.value, tokenParameter) == token) {
-                provider.extractCodeFromParameters(parameters) map { code =>
-                  callProvider(provider, code, ctx)
-                } getOrElse {
-                  resultProcessor(OpenidResultUndefinedCode(ctx))
-                }
-              } else {
-                resultProcessor(OpenidResultInvalidState(ctx))
-              }
-            } getOrElse {
-              resultProcessor(OpenidResultInvalidToken(ctx))
-            }
-          } getOrElse {
-            resultProcessor(OpenidResultUndefinedToken(ctx))
-          }
-        }
-      }
-    }
-  }
 
-  /**
-   * Calls the provider and sends the result to [[resultProcessor]]
-   *
-   * @param provider The provider to consider
-   * @param code     The access code
-   * @param ctx      The current request context
-   * @return The request result
-   */
-  private def callProvider(provider: OpenidProvider, code: String, ctx: RequestContext): Future[RouteResult] = {
-    val result = provider.requestData(code)
-
-    result flatMap { providerResult =>
-      resultProcessor(OpenidResultSuccess(ctx, providerResult.provider, providerResult.pid))
-    } recoverWith { case t =>
-      resultProcessor(OpenidResultErrorThrown(ctx, t))
-    }
-  }
-
-  /**
-   * Generates a random token.
-   */
-  private def generateToken(): String = Random.alphanumeric.take(50).mkString
-
-  /**
-   * Crypts a string with a salt.
-   *
-   * @param str  The string to crypt
-   * @param salt The salt to use
-   * @return The crypted string
-   */
-  private def crypt(str: String, salt: String) = {
-    // Code inspired of [[akka.util.Crypt]] which is now deprecated and could be removed in the future.
-    val hex = "0123456789ABCDEF"
-    val bytes = (str + salt).getBytes("ASCII")
-    MessageDigest.getInstance("SHA1").update(bytes)
-    val builder = new java.lang.StringBuilder(bytes.length * 2)
-    bytes.foreach { byte ⇒ builder.append(hex.charAt((byte & 0xF0) >> 4)).append(hex.charAt(byte & 0xF)) }
-    builder.toString
-  }
 }

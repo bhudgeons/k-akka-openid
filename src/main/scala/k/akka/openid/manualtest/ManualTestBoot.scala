@@ -62,21 +62,7 @@ object ManualTestBoot extends App {
     afterProviderOnResponse = Some("processing")
   )
 
-  val route = OpenidRouter(providers, routerSettings) {
-    // Each case represents a possible result the openid router provides
-    case OpenidResultSuccess(ctx, provider, pid) =>
-      ctx.complete(s"(provider, pid) = ($provider, $pid)")
-    case OpenidResultUndefinedCode(ctx) =>
-      ctx.complete("undefined code")
-    case OpenidResultUndefinedToken(ctx) =>
-      ctx.complete("undefined token")
-    case OpenidResultInvalidToken(ctx) =>
-      ctx.complete("invalid token")
-    case OpenidResultInvalidState(ctx) =>
-      ctx.complete("invalid state")
-    case OpenidResultErrorThrown(ctx, error) =>
-      ctx.complete("error: " + error.getMessage)
-  } ~ pathEndOrSingleSlash {
+  val route = OpenidRouter(providers, routerSettings)  ~ pathEndOrSingleSlash {
     // We provide a sample welcome page listing all available openid providers.
     complete(HttpResponse(entity = HttpEntity(ContentTypes.`text/html(UTF-8)`, ByteString(<html>
       <head>

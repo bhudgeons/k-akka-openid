@@ -80,7 +80,10 @@ object AutoRemovableMapActor {
 }
 
 class AutoRemovableMapActorImpl[A, B](duration: FiniteDuration) extends AutoRemovableMapActor[A, B] {
-  private val internalMap = mutable.Map[A, B]()
+  private val internalMap = {
+    println(s"creating new internalMap for $this")
+    mutable.Map[A, B]()
+  }
   private val timerMap = mutable.Map[A, Cancellable]()
 
   override def add(key: A, value: B) = {
@@ -90,13 +93,21 @@ class AutoRemovableMapActorImpl[A, B](duration: FiniteDuration) extends AutoRemo
     timerMap(key) = TypedActor.context.system.scheduler.scheduleOnce(duration) {
       self._removeScheduled(key)
     }
+    println(s"adding $key -> $value")
+    println(s"internalMap is now $internalMap")
   }
 
-  override def get(key: A): Option[B] = remove(key)
+  override def get(key: A): Option[B] = {
+    println(s"getting $key from $internalMap")
+    val returner = remove(key)
+    println(s"returning $returner")
+    returner
+  }
 
   override def _removeScheduled(key: A): Unit = remove(key)
 
   def remove(key: A): Option[B] = {
+    println(s"removing $key from $internalMap")
     timerMap.remove(key).foreach(_.cancel())
     internalMap.remove(key)
   }

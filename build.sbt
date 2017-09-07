@@ -4,9 +4,9 @@ name := "k-akka-openid"
 
 description := "Openid implementation for Akka HTTP"
 
-version := "0.1.0"
+version := "0.1-SNAPSHOT"
 
-scalaVersion := "2.12.3"
+scalaVersion := "2.11.8"
 
 scalacOptions := Seq("-encoding", "utf8")
 
@@ -26,33 +26,18 @@ libraryDependencies ++= {
   )
 }
 
-publishTo <<= version { (v: String) =>
-  val nexus = "https://oss.sonatype.org/"
+publishTo <<= version { v: String => 
+  val nexus = "http://scalabuild.schoox.com:8081/nexus/"
   if (v.trim.endsWith("SNAPSHOT"))
     Some("snapshots" at nexus + "content/repositories/snapshots")
   else
     Some("releases" at nexus + "service/local/staging/deploy/maven2")
 }
 
-credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
+organization := "com.schoox"
 
-pomExtra := (
-  <url>https://github.com/successk/k-akka-openid</url>
-    <licenses>
-      <license>
-        <name>MIT</name>
-        <url>http://opensource.org/licenses/MIT</url>
-        <distribution>repo</distribution>
-      </license>
-    </licenses>
-    <scm>
-      <url>git@github.com:successk/k-akka-openid.git</url>
-      <connection>scm:git:git@github.com:successk/k-akka-openid.git</connection>
-    </scm>
-    <developers>
-      <developer>
-        <id>kneelnrise</id>
-        <name>Gaëtan Rizio</name>
-        <email>gaetan@rizio.fr</email>
-      </developer>
-    </developers>)
+publishMavenStyle := true
+
+publishArtifact in Test := false
+
+pomIncludeRepository := { x => false }
