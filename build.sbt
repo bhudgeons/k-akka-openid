@@ -1,3 +1,6 @@
+import sbt._
+import Keys._
+
 organization := "net.successk"
 
 name := "k-akka-openid"
@@ -6,12 +9,12 @@ description := "Openid implementation for Akka HTTP"
 
 version := "0.1-SNAPSHOT"
 
-scalaVersion := "2.11.8"
+scalaVersion := "2.11.12"
 
-scalacOptions := Seq("-encoding", "utf8")
+retrieveManaged := true
 
-val   akkaV     = "2.5.3"
-val   akkaHttpV = "10.0.9"
+val   akkaV     = "2.5.7"
+val   akkaHttpV = "10.0.11"
 
 libraryDependencies ++= {
   Seq(
@@ -27,9 +30,9 @@ libraryDependencies ++= {
 }
 
 publishTo <<= version { v: String => 
-  val nexus = "http://scalabuild.schoox.com:8081/nexus/"
+  val nexus = "http://scalabuild.schoox.com:8081/"
   if (v.trim.endsWith("SNAPSHOT"))
-    Some("snapshots" at nexus + "content/repositories/snapshots")
+    Some("snapshots" at nexus + "repository/snapshots")
   else
     Some("releases" at nexus + "service/local/staging/deploy/maven2")
 }
@@ -41,3 +44,4 @@ publishMavenStyle := true
 publishArtifact in Test := false
 
 pomIncludeRepository := { x => false }
+
