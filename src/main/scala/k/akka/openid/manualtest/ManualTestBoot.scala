@@ -16,8 +16,9 @@ import com.typesafe.config.ConfigFactory
 import k.akka.openid.OpenidProvider._
 import k.akka.openid._
 
-import scala.concurrent.duration.FiniteDuration
 import scala.io.StdIn
+import scala.concurrent.duration._ 
+import scala.concurrent.Await
 
 object Config {
   lazy val config = ConfigFactory.load()
@@ -87,5 +88,5 @@ object ManualTestBoot extends App {
 
   // Stops the server
   println("Stopping")
-  server.flatMap(_.unbind()).onComplete(_ ⇒ system.awaitTermination())
+  server.flatMap(_.unbind()).onComplete(_ ⇒ Await.ready(system.whenTerminated, Duration(1, TimeUnit.MINUTES)))
 }

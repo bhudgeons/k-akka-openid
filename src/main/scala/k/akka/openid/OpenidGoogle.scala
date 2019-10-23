@@ -92,7 +92,7 @@ class OpenidGoogle(settings: OpenidGoogleSettings)(implicit actorSystem: ActorSy
       response <- Http().singleRequest(HttpRequest(
         method = HttpMethods.POST,
         uri = s"https://www.googleapis.com/oauth2/v4/token",
-        entity = HttpEntity(ContentType(MediaTypes.`application/x-www-form-urlencoded`, HttpCharsets.`UTF-8`), parametersEntity)
+        entity = HttpEntity(ContentType(MediaTypes.`application/x-www-form-urlencoded`), parametersEntity)
       ))
       strResult <- Unmarshal(response.entity).to[String]
     } yield strResult
@@ -224,7 +224,7 @@ class OpenidGoogle(settings: OpenidGoogleSettings)(implicit actorSystem: ActorSy
     // Each case represents a possible result the openid router provides
     // You will need to add your own logic for each result.
     // TODO: add support for path here?
-    case OpenidResultSuccess(ctx, provider, pid, _, _) => {
+    case OpenidResultSuccess(ctx, provider, pid, _, _, _) => {
       ctx.complete(s"(provider, pid) = ($provider, $pid)")
     }
     case OpenidResultUndefinedCode(ctx) =>

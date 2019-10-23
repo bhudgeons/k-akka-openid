@@ -2,17 +2,22 @@ package k.akka.openid
 
 import java.util.concurrent.TimeUnit
 
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.Location
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import k.akka.openid.OpenidProvider._
 import org.scalatest.Matchers._
 import org.scalatest.WordSpecLike
+import akka.testkit.TestKit
+import scala.concurrent.duration._ 
 
 import scala.concurrent.duration.FiniteDuration
 
-class OpenidRouterSpec extends WordSpecLike with ScalatestRouteTest {
-  implicit val sessionDuration = new FiniteDuration(1, TimeUnit.MINUTES)
+class OpenidRouterSpec(_system: ActorSystem) extends TestKit(_system) with WordSpecLike with ScalatestRouteTest {
+  def this() = this(ActorSystem("OpenidRouterSpec"))
+  implicit val _actorSystem = _system
 
   implicit def toScalaOption[A](underlying: java.util.Optional[A]):Option[A] = if (underlying.isPresent) Some(underlying.get) else None
 
@@ -23,6 +28,8 @@ class OpenidRouterSpec extends WordSpecLike with ScalatestRouteTest {
     afterProviderOnResponse = Some("processing")
   )
 
+  implicit val materializer:akka.stream.ActorMaterializer = ActorMaterializer()
+  implicit val sessionsDuration = Duration(1, TimeUnit.MINUTES)
   val route = OpenidRouter(providers, routerSettings) {
     case OpenidResultSuccess(ctx, provider, pid) =>
       ctx.complete(s"(provider, pid) = ($provider, $pid)")

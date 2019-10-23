@@ -46,7 +46,8 @@ object OpenidProvider {
 		provider: String, 
 		pid: String, 
 		loginInfo:Option[LoginInfo] = None, 
-		path:Option[String] = None) extends OpenidResult {
+		path:Option[String] = None,
+    ssoPath:Option[String] = None) extends OpenidResult {
     override def success: Boolean = true
   }
 
