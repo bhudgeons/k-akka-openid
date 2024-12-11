@@ -44,6 +44,7 @@ object OpenidProvider {
    */
   case class OpenidResultSuccess(requestContext: RequestContext, 
 		provider: String, 
+    susIntegrationUserKey:String,
 		pid: String, 
 		loginInfo:Option[LoginInfo] = None, 
 		path:Option[String] = None,
