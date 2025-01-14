@@ -130,7 +130,7 @@ class OpenidGoogle(settings: OpenidGoogleSettings)(implicit actorSystem: ActorSy
     val result = requestData(code)
 
     result flatMap { providerResult =>
-      resultProcessor(OpenidResultSuccess(ctx, providerResult.provider, "", providerResult.pid))
+      resultProcessor(OpenidResultSuccess(ctx, providerResult.provider, "", providerResult.pid, None, None, None, ""))
     } recoverWith { case t =>
       resultProcessor(OpenidResultErrorThrown(ctx, t))
     }
@@ -224,7 +224,7 @@ class OpenidGoogle(settings: OpenidGoogleSettings)(implicit actorSystem: ActorSy
     // Each case represents a possible result the openid router provides
     // You will need to add your own logic for each result.
     // TODO: add support for path here?
-    case OpenidResultSuccess(ctx, provider, susIntegrationUserKey, pid, _, _, _) => {
+    case OpenidResultSuccess(ctx, provider, susIntegrationUserKey, pid, _, _, _, _) => {
       ctx.complete(s"(provider, pid) = ($provider, $pid)")
     }
     case OpenidResultUndefinedCode(ctx) =>
